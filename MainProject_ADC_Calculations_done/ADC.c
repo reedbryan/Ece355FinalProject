@@ -52,9 +52,7 @@
 #define myTIM2_PERIOD ((uint32_t)12000000)
 
 
-void Button_Init(void);
 void myGPIOC_Init(void);
-void myTIM2_Init(void);
 void ADC_Init(void);
 void ADC_Enable(void);
 float Read_ADC_Voltage(void);
@@ -113,33 +111,7 @@ void SystemClock48MHz( void )
 int
 main(int argc, char* argv[])
 {
-
 	SystemClock48MHz();
-
-
-	// By customizing __initialize_args() it is possible to pass arguments,
-	// for example when running tests with semihosting you can pass various
-	// options to the test.
-	// trace_dump_args(argc, argv);
-
-	// Send a greeting to the trace device (skipped on Release).
-	trace_puts("Hello World!");
-
-	// The standard output and the standard error should be forwarded to
-	// the trace device. For this to work, a redirection in _write.c is
-	// required.
-	puts("Standard output message.");
-	fprintf(stderr, "Standard error message.\n");
-
-	// At this stage the system clock should have already been configured
-	// at high speed.
-	trace_printf("System clock: %u Hz\n", SystemCoreClock);
-
-
-	Button_Init();		/* Initialize I/O port PA */
-	myGPIOC_Init();		/* Initialize I/O port PC */
-	myTIM2_Init();		/* Initialize timer TIM2 */
-
 	ADC_Init();
 
 	while (1)
@@ -149,68 +121,13 @@ main(int argc, char* argv[])
 		float resistance = Calculate_Potentiomter_Resistance(voltage);
 
 		int res = (int)resistance;
-
-		trace_printf("Resistance: %d\n", res);
-
-		/* If button is pressed, switch between blue and green LEDs */
-		/*
-		if((GPIOA->IDR & GPIO_IDR_0) != 0)
-		{
-			// Wait for button to be released (PA0 = 0)
-			while((GPIOA->IDR & GPIO_IDR_0) != 0){}
-
-			// Turn off currently blinking LED
-			GPIOC->BRR = blinkingLED;
-			// Switch blinking LED
-			blinkingLED ^= ((uint16_t)0x0300);
-			// Turn on switched LED
-			GPIOC->BSRR = blinkingLED;
-
-			trace_printf("\nSwitching the blinking LED...\n");
-		}
-		*/
+		trace_printf("ADC Voltage: %dmV\n", (int)(voltage * 1000));
+		trace_printf("ADC Resistance: %d\n", res);
 	}
 
 	return 0;
 
 }
-
-
-void Button_Init()
-{
-	/* Enable clock for GPIOA peripheral */
-	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
-
-	/* Configure PA0 as input */
-	GPIOA->MODER &= ~(GPIO_MODER_MODER0);
-	/* Ensure no pull-up/pull-down for PA0 */
-	GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR0);
-
-	// Configure EXTI for user button
-	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PA;
-	EXTI->IMR |= EXTI_IMR_MR0;
-	EXTI->FTSR |= EXTI_FTSR_TR0;
-	NVIC_EnableIRQ(EXTI0_1_IRQn);
-}
-void EXTI0_1_IRQHandler(){
-
-	HAL_Init();
-
-	if (__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_0) != RESET){
-		__HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_0);
-
-		trace_printf("Button pressed\n");
-	}
-
-	/*
-	if (EXTI->PR & EXTI_PR_PR0){
-		EXTI->PR |= EXTI_PR_PR0; // clear interupt flag
-		while((GPIOA->IDR & GPIO_IDR_0) != 0){}
-
-		trace_printf("BRIO button clicked\n");
-	}*/
-}
-
 
 void ADC_Init(void){
 	// Enable ADC clock
@@ -222,7 +139,7 @@ void ADC_Init(void){
 	while(!(ADC1->ISR & ADC_ISR_ADRDY)){}
 
 	ADC1->CHSELR = ADC_CHSELR_CHSEL5;	// select channel 5 for PA5
-	ADC1->CFGR1 = ADC_CFGR1_RES_0;		// set 12-bit resolution
+	ADC1->CFGR1 &= ~( (1UL << 3) | (1UL << 2));		// set 12-bit resolution
 }
 float Read_ADC_Voltage(void){
 	ADC1->CR |= ADC_CR_ADSTART;	// start ADC conversion
@@ -239,81 +156,6 @@ float Calculate_Potentiomter_Resistance(float voltage) {
 		return 0;
 	}
 }
-
-void myGPIOC_Init()
-{
-	/* Enable clock for GPIOC peripheral */
-	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
-
-	/* Configure PC8 and PC9 as outputs */
-	GPIOC->MODER |= (GPIO_MODER_MODER8_0 | GPIO_MODER_MODER9_0);
-	/* Ensure push-pull mode selected for PC8 and PC9 */
-	GPIOC->OTYPER &= ~(GPIO_OTYPER_OT_8 | GPIO_OTYPER_OT_9);
-	/* Ensure high-speed mode for PC8 and PC9 */
-	GPIOC->OSPEEDR |= (GPIO_OSPEEDER_OSPEEDR8 | GPIO_OSPEEDER_OSPEEDR9);
-	/* Ensure no pull-up/pull-down for PC8 and PC9 */
-	GPIOC->PUPDR &= ~(GPIO_PUPDR_PUPDR8 | GPIO_PUPDR_PUPDR9);
-}
-
-
-void myTIM2_Init()
-{
-	/* Enable clock for TIM2 peripheral */
-	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
-
-	/* Configure TIM2: buffer auto-reload, count up, stop on overflow,
-	 * enable update events, interrupt on overflow only */
-	TIM2->CR1 = ((uint16_t)0x008C);
-
-	/* Set clock prescaler value */
-	TIM2->PSC = myTIM2_PRESCALER;
-	/* Set auto-reloaded delay */
-	TIM2->ARR = myTIM2_PERIOD;
-
-	/* Update timer registers */
-	TIM2->EGR = ((uint16_t)0x0001);
-
-	/* Assign TIM2 interrupt priority = 0 in NVIC */
-	NVIC_SetPriority(TIM2_IRQn, 0);
-	// Same as: NVIC->IP[3] = ((uint32_t)0x00FFFFFF);
-
-	/* Enable TIM2 interrupts in NVIC */
-	NVIC_EnableIRQ(TIM2_IRQn);
-	// Same as: NVIC->ISER[0] = ((uint32_t)0x00008000) */
-
-	/* Enable update interrupt generation */
-	TIM2->DIER |= TIM_DIER_UIE;
-	/* Start counting timer pulses */
-	TIM2->CR1 |= TIM_CR1_CEN;
-}
-
-
-/* This handler is declared in system/src/cmsis/vectors_stm32f051x8.c */
-void TIM2_IRQHandler()
-{
-	uint16_t LEDstate;
-
-	/* Check if update interrupt flag is indeed set */
-	if ((TIM2->SR & TIM_SR_UIF) != 0)
-	{
-		/* Read current PC output and isolate PC8 and PC9 bits */
-		LEDstate = GPIOC->ODR & ((uint16_t)0x0300);
-		if (LEDstate == 0)	/* If LED is off, turn it on... */
-		{
-			/* Set PC8 or PC9 bit */
-			GPIOC->BSRR = blinkingLED;
-		}
-		else			/* ...else (LED is on), turn it off */
-		{
-			/* Reset PC8 or PC9 bit */
-			GPIOC->BRR = blinkingLED;
-		}
-
-		TIM2->SR &= ~(TIM_SR_UIF);	/* Clear update interrupt flag */
-		TIM2->CR1 |= TIM_CR1_CEN;	/* Restart stopped timer */
-	}
-}
-
 
 #pragma GCC diagnostic pop
 
