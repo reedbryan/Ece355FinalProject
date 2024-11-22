@@ -17,17 +17,10 @@
 #define V_REF 3.3
 #define POT_MAX_RESISTANCE 5000.0
 
-void myGPIOC_Init(void);
 void ADC_Init(void);
 void DAC_Init(void);
 uint16_t Convert_Voltage_To_DAC(float voltage);
 float Read_ADC_Voltage(void);
-float Calculate_Potentiomter_Resistance(float voltage);
-
-
-/* Global variable indicating which LED is blinking */
-volatile uint16_t blinkingLED = ((uint16_t)0x0100);
-
 
 /*** Call this function to boost the STM32F0xx clock to 48 MHz ***/
 void SystemClock48MHz( void )
@@ -35,26 +28,20 @@ void SystemClock48MHz( void )
 // Disable the PLL
    RCC->CR &= ~(RCC_CR_PLLON);
 
-
 // Wait for the PLL to unlock
    while (( RCC->CR & RCC_CR_PLLRDY ) != 0 );
-
-
+	
 // Configure the PLL for a 48MHz system clock
    RCC->CFGR = 0x00280000;
-
 
 // Enable the PLL
    RCC->CR |= RCC_CR_PLLON;
 
-
 // Wait for the PLL to lock
    while (( RCC->CR & RCC_CR_PLLRDY ) != RCC_CR_PLLRDY );
 
-
 // Switch the processor to the PLL clock source
    RCC->CFGR = ( RCC->CFGR & (~RCC_CFGR_SW_Msk)) | RCC_CFGR_SW_PLL;
-
 
 // Update the system with the new clock frequency
    SystemCoreClockUpdate();
@@ -78,25 +65,6 @@ int main(int argc, char* argv[])
 	}
 	return 0;
 }
-
-
-void Button_Init(void)
-{
-	// Enable clock for GPIOA peripheral
-	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
-
-	// Configure PA0 as input
-	GPIOA->MODER &= ~(GPIO_MODER_MODER0);
-	// Ensure no pull-up/pull-down for PA0
-	GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR0);
-
-	// Configure EXTI for user button
-	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PA;
-	EXTI->IMR |= EXTI_IMR_MR0;
-	EXTI->FTSR |= EXTI_FTSR_TR0;
-	NVIC_EnableIRQ(EXTI0_1_IRQn);
-}
-
 
 void ADC_Init(void){
 	// Enable ADC clock
