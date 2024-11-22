@@ -1,17 +1,3 @@
-//
-// This file is part of the GNU ARM Eclipse distribution.
-// Copyright (c) 2014 Liviu Ionescu.
-//
-
-// ----------------------------------------------------------------------------
-// School: University of Victoria, Canada.
-// Course: ECE 355 "Microprocessor-Based Systems".
-// This is tutorial code for Part 1 of Introductory Lab.
-//
-// See "system/include/cmsis/stm32f051x8.h" for register/bit definitions.
-// See "system/src/cmsis/vectors_stm32f051x8.c" for handler declarations.
-// ----------------------------------------------------------------------------
-
 #include <stdio.h>
 #include <unistd.h>
 #include "diag/Trace.h"
